@@ -61,7 +61,7 @@ ${numa_line}
 ${bdevs}
         bdev_roles: [wal, meta, data]
 YAML
-  echo "rendered $CFG from environment"
+  echo "rendered $CFG from environment" >&2
 fi
 if [ "${DAOS_RENDER_ONLY:-0}" = "1" ]; then cat "$CFG"; exit 0; fi
 exec daos_server start -o "$CFG" "$@"

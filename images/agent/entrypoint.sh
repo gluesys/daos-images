@@ -5,7 +5,8 @@ set -euo pipefail
 # Any explicit command (bash, sh, daos_* subcommands) bypasses the daemon path.
 case "${1:-}" in ""|-*) ;; *) exec "$@" ;; esac
 CFG=/etc/daos/daos_agent.yml
-if [ ! -s "$CFG" ]; then
+# The RPM may ship a fully commented example; render unless an uncommented access_points: exists.
+if ! grep -qE "^access_points:" "$CFG" 2>/dev/null; then
   : "${DAOS_SYSTEM_NAME:=daos_server}"
   : "${DAOS_ACCESS_POINTS:?comma-separated MS replica hostnames}"
   : "${DAOS_ALLOW_INSECURE:=false}"
@@ -25,7 +26,7 @@ transport_config:
   cert: /etc/daos/certs/agent.crt
   key: /etc/daos/certs/agent.key
 YAML
-  echo "rendered $CFG from environment"
+  echo "rendered $CFG from environment" >&2
 fi
 if [ "${DAOS_RENDER_ONLY:-0}" = "1" ]; then cat "$CFG"; exit 0; fi
 exec daos_agent -o "$CFG" "$@"

@@ -3,7 +3,8 @@
 # Copyright 2026 Gluesys Co., Ltd.
 set -euo pipefail
 CFG=/etc/daos/daos_control.yml
-if [ ! -s "$CFG" ]; then
+# The RPM may ship a fully commented example; render unless an uncommented hostlist: exists.
+if ! grep -qE "^hostlist:" "$CFG" 2>/dev/null; then
   : "${DAOS_SYSTEM_NAME:=daos_server}"
   : "${DAOS_HOSTLIST:?comma-separated server hostnames}"
   : "${DAOS_ALLOW_INSECURE:=false}"
