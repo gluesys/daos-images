@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Gluesys Co., Ltd.
+#
+# Week-3 manual bring-up on a testbed host. Mirrors upstream utils/docker/vcluster
+# but with real NVMe (VFIO) instead of file-backed emulation. Requires the host to
+# be prepared first: sysctl vm.nr_hugepages, `daos_server nvme prepare`.
+services:
+  daos-server:
+    image: "${DAOS_IMAGE_NSP}/daos-server:${DAOS_IMAGE_TAG}"
+    privileged: true
+    network_mode: host
+    pid: host
+    env_file: [.env]
+    volumes:
+      - /dev/hugepages:/dev/hugepages
+      - /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages
+      - /sys/devices/system/node:/sys/devices/system/node
+      - /dev/vfio:/dev/vfio
+      - /var/daos:/var/daos
+      - /etc/daos:/etc/daos
+      - /var/log/daos:/var/log/daos
+    ulimits: { memlock: -1, nofile: 1048576 }
+    restart: "no"          # never auto-restart an engine unattended (SPDK wedge -> format)
+  daos-agent:
+    image: "${DAOS_IMAGE_NSP}/daos-agent:${DAOS_IMAGE_TAG}"
+    network_mode: host
+    env_file: [.env]
+    volumes:
+      - /var/run/daos_agent:/var/run/daos_agent
+      - /etc/daos:/etc/daos
+      - /var/log/daos:/var/log/daos
+    depends_on: [daos-server]

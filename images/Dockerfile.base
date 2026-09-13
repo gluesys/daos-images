@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Gluesys Co., Ltd.
+#
+# daos-base: Rocky 9 + DAOS 2.8 package repository. Nothing DAOS-specific is
+# installed here; the four role images layer on top of it.
+ARG BASE_IMAGE=quay.io/rockylinux/rockylinux:9
+FROM ${BASE_IMAGE}
+ARG DAOS_REPO_URL=https://packages.daos.io/v2.8/EL9/packages/x86_64/daos_packages.repo
+RUN dnf -y install epel-release && dnf -y install curl-minimal ca-certificates \
+ && curl -fsSL -o /etc/yum.repos.d/daos.repo "${DAOS_REPO_URL}" \
+ && rpm --import https://packages.daos.io/RPM-GPG-KEY-2023 || true
+LABEL org.opencontainers.image.vendor="Gluesys Co., Ltd." \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/gluesys/daos-images"
