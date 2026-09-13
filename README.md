@@ -24,7 +24,7 @@ GPU-direct 초안(`theodore/b_cufile`)은 이미지에 넣지 않는다.
 ## 실행 계약 (Phase 0)
 서버는 `--privileged --network host` 와 hugepages/vfio/sysfs 마운트가 필요하다(ADR-002).
 설정 파일이 마운트되지 않으면 엔트리포인트가 환경변수에서 YAML 을 렌더링한다:
-`DAOS_ACCESS_POINTS`, `DAOS_FABRIC_IFACE`, `DAOS_BDEV_LIST`(필수),
+`DAOS_MS_REPLICAS`(서버; agent 는 `DAOS_ACCESS_POINTS`), `DAOS_FABRIC_IFACE`, `DAOS_BDEV_LIST`(필수),
 `DAOS_PROVIDER`, `DAOS_TARGETS`, `DAOS_SCM_SIZE_GB`, `DAOS_NR_HUGEPAGES`, `DAOS_ALLOW_INSECURE`.
 Week-3 수동 기동 절차는 `compose/` 를 본다.
 

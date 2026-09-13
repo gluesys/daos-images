@@ -27,4 +27,5 @@ transport_config:
 YAML
   echo "rendered $CFG from environment"
 fi
+if [ "${DAOS_RENDER_ONLY:-0}" = "1" ]; then cat "$CFG"; exit 0; fi
 exec daos_agent -o "$CFG" "$@"

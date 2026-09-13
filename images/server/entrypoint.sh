@@ -9,9 +9,12 @@ set -euo pipefail
 # Any explicit command (bash, sh, daos_* subcommands) bypasses the daemon path.
 case "${1:-}" in ""|-*) ;; *) exec "$@" ;; esac
 CFG=/etc/daos/daos_server.yml
-if [ ! -s "$CFG" ]; then
+# The daos-server RPM ships a fully commented daos_server.yml, so "file exists"
+# is not "file configured": render unless an uncommented engines: block is present.
+if ! grep -qE "^engines:" "$CFG" 2>/dev/null; then
   : "${DAOS_SYSTEM_NAME:=daos_server}"
-  : "${DAOS_ACCESS_POINTS:?comma-separated MS replica hostnames (odd count)}"
+  : "${DAOS_MS_REPLICAS:=${DAOS_ACCESS_POINTS:-}}"
+  : "${DAOS_MS_REPLICAS:?comma-separated management-service replica hostnames (odd count)}"
   : "${DAOS_PROVIDER:=ofi+verbs;ofi_rxm}"
   : "${DAOS_FABRIC_IFACE:?host NIC name, differs per host (ens2 vs ens2np0)}"
   : "${DAOS_FABRIC_PORT:=31316}"
@@ -22,12 +25,12 @@ if [ ! -s "$CFG" ]; then
   : "${DAOS_NR_HUGEPAGES:=8192}"
   : "${DAOS_ALLOW_INSECURE:=false}"
   : "${DAOS_PINNED_NUMA:=}"
-  aps=$(echo "$DAOS_ACCESS_POINTS" | tr ',' '\n' | sed 's/^/  - /')
+  aps=$(echo "$DAOS_MS_REPLICAS" | tr ',' '\n' | sed 's/^/  - /')
   bdevs=$(echo "$DAOS_BDEV_LIST" | tr ',' '\n' | sed 's/^/          - "/; s/$/"/')
   numa_line=""; [ -n "$DAOS_PINNED_NUMA" ] && numa_line="    pinned_numa_node: ${DAOS_PINNED_NUMA}"
   cat > "$CFG" <<YAML
 name: ${DAOS_SYSTEM_NAME}
-access_points:
+mgmt_svc_replicas:
 ${aps}
 port: 10001
 provider: ${DAOS_PROVIDER}
@@ -60,4 +63,5 @@ ${bdevs}
 YAML
   echo "rendered $CFG from environment"
 fi
+if [ "${DAOS_RENDER_ONLY:-0}" = "1" ]; then cat "$CFG"; exit 0; fi
 exec daos_server start -o "$CFG" "$@"
