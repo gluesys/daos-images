@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Gluesys Co., Ltd.
 set -euo pipefail
+# Any explicit command (bash, sh, daos_* subcommands) bypasses the daemon path.
+case "${1:-}" in ""|-*) ;; *) exec "$@" ;; esac
 CFG=/etc/daos/daos_agent.yml
 if [ ! -s "$CFG" ]; then
   : "${DAOS_SYSTEM_NAME:=daos_server}"

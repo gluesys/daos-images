@@ -6,6 +6,8 @@
 # The operator will own this file later (ConfigMap per node); for Phase 0 the
 # environment variables below are the contract.
 set -euo pipefail
+# Any explicit command (bash, sh, daos_* subcommands) bypasses the daemon path.
+case "${1:-}" in ""|-*) ;; *) exec "$@" ;; esac
 CFG=/etc/daos/daos_server.yml
 if [ ! -s "$CFG" ]; then
   : "${DAOS_SYSTEM_NAME:=daos_server}"
