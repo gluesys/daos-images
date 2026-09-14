@@ -10,7 +10,7 @@ DOCKER    ?= docker
 GITLAB_USER ?= $(USER)
 ROLES      = server agent client admin
 
-.PHONY: all base $(ROLES) sbom save clean print-tag login push
+.PHONY: all base $(ROLES) sbom sbom-upload save clean print-tag login push
 all: base $(ROLES)
 print-tag: ; @echo $(IMAGE_TAG)
 base:
@@ -19,8 +19,12 @@ base:
 $(ROLES): base
 	$(DOCKER) build -f images/$@/Dockerfile --build-arg IMAGE_NSP=$(IMAGE_NSP) --build-arg IMAGE_TAG=$(IMAGE_TAG) \
 	  --build-arg DAOS_VERSION=$(DAOS_VERSION) -t $(IMAGE_NSP)/daos-$@:$(IMAGE_TAG) images/$@
-sbom: ## requires syft
-	@for r in $(ROLES); do syft $(IMAGE_NSP)/daos-$$r:$(IMAGE_TAG) -o spdx-json > sbom-daos-$$r-$(IMAGE_TAG).spdx.json; done
+SYFT ?= syft
+sbom: ## requires syft (reads the docker socket; use SYFT="sudo syft" if docker needs root)
+	@mkdir -p sbom; for r in base $(ROLES); do $(SYFT) $(IMAGE_NSP)/daos-$$r:$(IMAGE_TAG) -o spdx-json -q > sbom/daos-$$r-$(IMAGE_TAG).spdx.json; done; ls -la sbom/
+sbom-upload: ## GitLab generic package daos-images-sbom/$(IMAGE_TAG)/ (GITLAB_TOKEN, GITLAB_PROJECT_ID)
+	@for f in sbom/*-$(IMAGE_TAG).spdx.json; do curl -s -H "PRIVATE-TOKEN: $(GITLAB_TOKEN)" --upload-file $$f \
+	  "https://gitlab.gluesys.com/api/v4/projects/$(GITLAB_PROJECT_ID)/packages/generic/daos-images-sbom/$(IMAGE_TAG)/$$(basename $$f)"; echo; done
 save: ## air-gap bundle
 	scripts/save-airgap.sh $(IMAGE_NSP) $(IMAGE_TAG) $(ROLES)
 login: ## docker login with a GitLab PAT (read_registry/write_registry or api scope)

@@ -37,10 +37,15 @@ make push IMAGE_TAG=2.8.0-20260914 DOCKER="sudo docker"
 `DAOS_PROVIDER`, `DAOS_TARGETS`, `DAOS_SCM_SIZE_GB`, `DAOS_NR_HUGEPAGES`, `DAOS_ALLOW_INSECURE`.
 Week-3 수동 기동 절차는 `compose/` 를 본다.
 
+## SBOM
+`make sbom` 이 syft 로 이미지별 SPDX JSON 을 `sbom/` 에 만든다(git 에는 넣지 않음). 산출물은 GitLab
+Generic Package `daos-images-sbom/<tag>/` 에 올린다(첫 업로드 2026-09-14, 태그 2.8.0-20260914, 5개).
+2.8 EL9 RPM 이 번들한 주요 버전: daos 2.8.0-6.el9, mercury 2.4.1-3, libfabric 2.3.1-3, daos-spdk 26.01-2, argobots 1.2-4.
+
 ## 아직 검증되지 않은 것
-- 렌더링된 `daos_server.yml` 이 2.8 스키마와 정확히 맞는지 (`daos_server config` 검증 필요)
+- 렌더링된 `daos_server.yml` 이 2.8 스키마와 정확히 맞는지 (실기동 로그로 확인)
 - 인증서 생성/배포 — operator 의 Secret 이 맡는다
-- SBOM(syft)·서명(cosign) — Phase 2
+- 이미지 서명(cosign) — Phase 2
 
 ## 관련
 ADR: `exastor/daos-operator/doc/adr/`. 사업·기술 배경: FlexA Hub 문서 `c82997c1-c66a-4728-ba21-24aeb2562535`.
