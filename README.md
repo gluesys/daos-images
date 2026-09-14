@@ -21,6 +21,15 @@ make save                # 에어갭 tar + sha256 + load 스크립트
 공식 배포는 RPM 만 존재하므로(packages.daos.io) 이미지는 v2.8 EL9 RPM 을 설치해 만든다.
 GPU-direct 초안(`theodore/b_cufile`)은 이미지에 넣지 않는다.
 
+## 레지스트리
+`registry.gitlab.gluesys.com/exastor/daos-images/daos-{base,server,agent,client,admin}:<tag>`.
+첫 push 2026-09-14, 태그 `2.8.0-20260914`. GitLab API 가 알려주는 prefix 에는 `:80` 이 붙어 있지만
+실제 레지스트리는 443 TLS 로 동작하므로 호스트명만 쓴다.
+```bash
+make login GITLAB_TOKEN=<pat> GITLAB_USER=<user> DOCKER="sudo docker"
+make push IMAGE_TAG=2.8.0-20260914 DOCKER="sudo docker"
+```
+
 ## 실행 계약 (Phase 0)
 서버는 `--privileged --network host` 와 hugepages/vfio/sysfs 마운트가 필요하다(ADR-002).
 설정 파일이 마운트되지 않으면 엔트리포인트가 환경변수에서 YAML 을 렌더링한다:
