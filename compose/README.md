@@ -26,6 +26,12 @@ modprobe vfio-pci
 docker run --rm --privileged --network host --pid host -v /dev:/dev -v /sys:/sys \
   daos/daos-server:<tag> daos_server nvme prepare
 mkdir -p /var/daos /etc/daos/certs /var/log/daos /var/run/daos_agent
+
+# TLS (선택): 인증서를 한 번 만들어 각 역할 디렉터리를 /etc/daos/certs 로 마운트한다.
+#   scripts/gen-certs.sh /etc/daos/pki      # server/ agent/ admin/ 생성, 키는 0400
+#   .env: DAOS_CERTS_DIR=/etc/daos/pki, DAOS_ALLOW_INSECURE=false
+# CA 개인키(/etc/daos/pki/daosCA/private)는 서버에 두지 말고 따로 보관한다.
+# K8s 에서는 필요 없다 — operator 가 Secret <system>-certs 로 만들고 교체한다.
 ```
 
 ## 3. 기동
