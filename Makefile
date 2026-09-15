@@ -10,7 +10,7 @@ DOCKER    ?= docker
 GITLAB_USER ?= $(USER)
 ROLES      = server agent client admin
 
-.PHONY: all base $(ROLES) sbom sbom-upload save clean print-tag login push
+.PHONY: all base $(ROLES) sbom sbom-upload save clean print-tag login push validate-config
 all: base $(ROLES)
 print-tag: ; @echo $(IMAGE_TAG)
 base:
@@ -36,3 +36,12 @@ push: ## retag daos/<role>:$(IMAGE_TAG) -> $(REGISTRY)/daos-<role>:$(IMAGE_TAG) 
 	  $(DOCKER) push $(REGISTRY)/daos-$$r:$(IMAGE_TAG); done
 clean:
 	-$(DOCKER) image rm $(foreach r,base $(ROLES),$(IMAGE_NSP)/daos-$(r):$(IMAGE_TAG))
+
+## Validate DAOS configuration files against the real 2.8 binaries (no hardware
+## needed; see scripts/validate-config.sh for how far it gets).
+##   make validate-config KIND=server FILE=/path/daos_server.yml
+KIND ?= server
+FILE ?=
+validate-config:
+	@test -n "$(FILE)" || { echo "FILE=<config> is required"; exit 2; }
+	DOCKER="$(DOCKER)" IMAGE_NSP="$(IMAGE_NSP)" IMAGE_TAG="$(IMAGE_TAG)" scripts/validate-config.sh $(KIND) $(FILE)
