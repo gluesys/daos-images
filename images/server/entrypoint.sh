@@ -64,4 +64,7 @@ YAML
   echo "rendered $CFG from environment" >&2
 fi
 if [ "${DAOS_RENDER_ONLY:-0}" = "1" ]; then cat "$CFG"; exit 0; fi
+# daos_server refuses to start without its dRPC socket directory; the RPM relies
+# on systemd-tmpfiles for it, which does not run in a container.
+mkdir -p /var/run/daos_server
 exec daos_server start -o "$CFG" "$@"
