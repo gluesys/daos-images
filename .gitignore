@@ -2,3 +2,6 @@ sbom/
 *.tar
 *.tar.sha256
 load-*.sh
+
+# fetched build context (scripts/fetch-versitygw.sh)
+images/versitygw/src/

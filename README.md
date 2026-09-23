@@ -4,7 +4,8 @@
 # daos-images
 
 DAOS 2.8 컨테이너 이미지 4종(`daos-server`, `daos-agent`, `daos-client`, `daos-admin`)과
-에어갭 번들 스크립트. `exastor/daos-operator` 와 `exastor/daos-csi` 가 소비한다.
+S3 게이트웨이 이미지(`versitygw-daos`), 에어갭 번들 스크립트.
+`exastor/daos-operator` 와 `exastor/daos-csi` 가 소비한다.
 
 이 저장소가 지키는 규칙(모든 exastor K8s 저장소 공통):
 1. **CRD 가 유일한 관리 API** — 이미지는 설정을 env/ConfigMap 에서만 받는다.
@@ -18,11 +19,26 @@ make all                 # base + 4 roles, 태그 = 2.8.0-YYYYMMDD
 make admin IMAGE_TAG=dev # 하나만
 make save                # 에어갭 tar + sha256 + load 스크립트
 ```
+
+### versitygw-daos (S3 게이트웨이)
+네이티브 DAOS 백엔드를 가진 Versity S3 게이트웨이다(버킷 1개 = 풀 안의 DFS 컨테이너 1개, libdfs 직결).
+소스는 **다른 저장소**(`exastor/versitygw`, 기본 ref `feature/daos-backend`)라 4종과 빌드 주기가 다르고,
+`daos-client` 를 다시 만들지 않는다.
+```bash
+make versitygw IMAGE_NSP=$REGISTRY IMAGE_TAG=2.8.0-20260914   # 발행된 client 위에 빌드
+make versitygw VGW_SRC=~/src/Flexa/versitygw                  # 로컬 체크아웃으로
+make push-versitygw IMAGE_TAG=2.8.0-20260923
+```
+`scripts/fetch-versitygw.sh` 가 소스를 빌드 컨텍스트(`images/versitygw/src`, git 미추적)로 가져오므로
+자격증명이 이미지에 들어가지 않는다. 빌드는 Go 툴체인을 sha256 고정해 내려받고
+`CGO_ENABLED=1 go build -tags daos` 로 `-ldfs -ldaos -lgurt -luuid` 를 링크한다.
+쿠버네티스에서는 `daos-operator` 의 `S3Service` CRD 가 이 이미지를 띄운다(ADR-004).
 공식 배포는 RPM 만 존재하므로(packages.daos.io) 이미지는 v2.8 EL9 RPM 을 설치해 만든다.
 GPU-direct 초안(`theodore/b_cufile`)은 이미지에 넣지 않는다.
 
 ## 레지스트리
-`registry.gitlab.gluesys.com/exastor/daos-images/daos-{base,server,agent,client,admin}:<tag>`.
+`registry.gitlab.gluesys.com/exastor/daos-images/daos-{base,server,agent,client,admin}:<tag>`,
+`.../versitygw-daos:<tag>`.
 첫 push 2026-09-14, 태그 `2.8.0-20260914`. GitLab API 가 알려주는 prefix 에는 `:80` 이 붙어 있지만
 실제 레지스트리는 443 TLS 로 동작하므로 호스트명만 쓴다.
 ```bash

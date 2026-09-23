@@ -9,8 +9,11 @@ IMAGE_TAG ?= $(DAOS_VERSION)-$(shell date +%Y%m%d)
 DOCKER    ?= docker
 GITLAB_USER ?= $(USER)
 ROLES      = server agent client admin
+# versitygw is built from a second repository (exastor/versitygw), so it is not
+# part of ROLES: `make versitygw` fetches that source first.
+VGW_REF   ?= feature/daos-backend
 
-.PHONY: all base $(ROLES) sbom sbom-upload save clean print-tag login push validate-config
+.PHONY: all base $(ROLES) versitygw sbom sbom-upload save clean print-tag login push push-versitygw validate-config
 all: base $(ROLES)
 print-tag: ; @echo $(IMAGE_TAG)
 base:
@@ -19,6 +22,19 @@ base:
 $(ROLES): base
 	$(DOCKER) build -f images/$@/Dockerfile --build-arg IMAGE_NSP=$(IMAGE_NSP) --build-arg IMAGE_TAG=$(IMAGE_TAG) \
 	  --build-arg DAOS_VERSION=$(DAOS_VERSION) -t $(IMAGE_NSP)/daos-$@:$(IMAGE_TAG) images/$@
+## versitygw-daos: S3 gateway with the native DAOS backend (daos-operator S3Service).
+## Source comes from exastor/versitygw; VGW_SRC=<path> builds a local checkout instead.
+## The daos-client base is not rebuilt here (this image follows the gateway's own
+## cadence): build it with `make client`, or point at a published one, e.g.
+##   make versitygw IMAGE_NSP=$(REGISTRY) IMAGE_TAG=2.8.0-20260914
+versitygw:
+	scripts/fetch-versitygw.sh $(VGW_REF)
+	$(DOCKER) build -f images/versitygw/Dockerfile --build-arg IMAGE_NSP=$(IMAGE_NSP) --build-arg IMAGE_TAG=$(IMAGE_TAG) \
+	  --build-arg VGW_VERSION=$(IMAGE_TAG) -t $(IMAGE_NSP)/versitygw-daos:$(IMAGE_TAG) images/versitygw
+push-versitygw:
+	$(DOCKER) tag $(IMAGE_NSP)/versitygw-daos:$(IMAGE_TAG) $(REGISTRY)/versitygw-daos:$(IMAGE_TAG)
+	$(DOCKER) push $(REGISTRY)/versitygw-daos:$(IMAGE_TAG)
+
 SYFT ?= syft
 sbom: ## requires syft (reads the docker socket; use SYFT="sudo syft" if docker needs root)
 	@mkdir -p sbom; for r in base $(ROLES); do $(SYFT) $(IMAGE_NSP)/daos-$$r:$(IMAGE_TAG) -o spdx-json -q > sbom/daos-$$r-$(IMAGE_TAG).spdx.json; done; ls -la sbom/
