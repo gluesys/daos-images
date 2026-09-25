@@ -5,3 +5,4 @@ load-*.sh
 
 # fetched build context (scripts/fetch-versitygw.sh)
 images/versitygw/src/
+images/vllm-lmcache-daos/src/

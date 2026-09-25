@@ -13,7 +13,7 @@ ROLES      = server agent client admin
 # part of ROLES: `make versitygw` fetches that source first.
 VGW_REF   ?= feature/daos-backend
 
-.PHONY: all base $(ROLES) versitygw sbom sbom-upload save clean print-tag login push push-versitygw validate-config
+.PHONY: all base $(ROLES) versitygw vllm-lmcache push-vllm-lmcache sbom sbom-upload save clean print-tag login push push-versitygw validate-config
 all: base $(ROLES)
 print-tag: ; @echo $(IMAGE_TAG)
 base:
@@ -31,6 +31,18 @@ versitygw:
 	scripts/fetch-versitygw.sh $(VGW_REF)
 	$(DOCKER) build -f images/versitygw/Dockerfile --build-arg IMAGE_NSP=$(IMAGE_NSP) --build-arg IMAGE_TAG=$(IMAGE_TAG) \
 	  --build-arg VGW_VERSION=$(IMAGE_TAG) -t $(IMAGE_NSP)/versitygw-daos:$(IMAGE_TAG) images/versitygw
+## vllm-lmcache-daos: vLLM + LMCache + lmcache-daos connector on the daos-client base
+## (daos-operator #25 reference deployment). Source via scripts/fetch-lmcache-daos.sh.
+VLLM_VERSION    ?= 0.30.0
+LMCACHE_VERSION ?= 0.5.5
+vllm-lmcache:
+	scripts/fetch-lmcache-daos.sh $(LMD_REF)
+	$(DOCKER) build -f images/vllm-lmcache-daos/Dockerfile --build-arg IMAGE_NSP=$(IMAGE_NSP) --build-arg IMAGE_TAG=$(IMAGE_TAG) \
+	  --build-arg VLLM_VERSION=$(VLLM_VERSION) --build-arg LMCACHE_VERSION=$(LMCACHE_VERSION) \
+	  -t $(IMAGE_NSP)/vllm-lmcache-daos:$(IMAGE_TAG) images/vllm-lmcache-daos
+push-vllm-lmcache:
+	$(DOCKER) tag $(IMAGE_NSP)/vllm-lmcache-daos:$(IMAGE_TAG) $(REGISTRY)/vllm-lmcache-daos:$(IMAGE_TAG)
+	$(DOCKER) push $(REGISTRY)/vllm-lmcache-daos:$(IMAGE_TAG)
 push-versitygw:
 	$(DOCKER) tag $(IMAGE_NSP)/versitygw-daos:$(IMAGE_TAG) $(REGISTRY)/versitygw-daos:$(IMAGE_TAG)
 	$(DOCKER) push $(REGISTRY)/versitygw-daos:$(IMAGE_TAG)

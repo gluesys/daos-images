@@ -33,6 +33,18 @@ make push-versitygw IMAGE_TAG=2.8.0-20260923
 자격증명이 이미지에 들어가지 않는다. 빌드는 Go 툴체인을 sha256 고정해 내려받고
 `CGO_ENABLED=1 go build -tags daos` 로 `-ldfs -ldaos -lgurt -luuid` 를 링크한다.
 쿠버네티스에서는 `daos-operator` 의 `S3Service` CRD 가 이 이미지를 띄운다(ADR-004).
+
+### vllm-lmcache-daos (vLLM + LMCache + DAOS 커넥터)
+daos-operator #25 참조 배포용 서빙 이미지. `daos-client` 위에 python3.12 와 **vLLM·LMCache wheel**, 그리고
+`lmcache-daos` 커넥터(순수 파이썬, ctypes 로 libdaos/libdfs)를 얹는다. 파드는 daos_agent 소켓만 있으면 되고
+dfuse·PV·GDS 는 필요 없다. Ubuntu 기반 `lmcache/vllm-openai` 대신 EL9 를 쓰는 이유는 DAOS 클라이언트를
+다른 이미지와 같은 RPM 에서 가져오기 위해서다(wheel 은 배포판을 가리지 않는다).
+```bash
+make vllm-lmcache IMAGE_NSP=$REGISTRY IMAGE_TAG=2.8.0-20260914 VLLM_VERSION=0.30.0 LMCACHE_VERSION=0.5.5
+make vllm-lmcache LMD_SRC=~/src/Flexa/lmcache-daos            # 로컬 체크아웃으로
+```
+`PYTHONHASHSEED=0`(lmcache-daos 요구)과 `DAOS_AGENT_DRPC_DIR` 이 기본 env 다. 첫 태그 `0.30.0-0.5.5-20260926`
+(vllm 0.30.0 + lmcache 0.5.5 + lmcache-daos e40c1fa, torch cu13, sm_86 포함).
 공식 배포는 RPM 만 존재하므로(packages.daos.io) 이미지는 v2.8 EL9 RPM 을 설치해 만든다.
 GPU-direct 초안(`theodore/b_cufile`)은 이미지에 넣지 않는다.
 
