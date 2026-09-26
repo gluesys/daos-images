@@ -23,6 +23,9 @@ RUN dnf -y install python3.12 python3.12-pip python3.12-devel gcc-c++ git && dnf
  && python3.12 -m pip install --no-cache-dir --upgrade pip
 # the two wheels together are ~7 GB (torch/cuda libs ride along); a single layer
 RUN python3.12 -m pip install --no-cache-dir "vllm==${VLLM_VERSION}" "lmcache==${LMCACHE_VERSION}"
+# flashinfer 의 JIT 경로가 `which nvcc` 로 CUDA 를 찾는다. which 가 없으면
+# FileNotFoundError 로 엔진 기동이 통째로 실패한다(cxl2 실측).
+RUN dnf -y install which && dnf clean all
 COPY src /opt/lmcache-daos
 RUN python3.12 -m pip install --no-cache-dir /opt/lmcache-daos \
  && python3.12 -c "import vllm, lmcache, lmcache_daos; print('vllm', vllm.__version__, 'lmcache', lmcache.__version__, 'lmcache_daos', getattr(lmcache_daos, '__version__', '?'))" \
