@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Gluesys Co., Ltd.
 #
-# Phase 0 pipeline: only what runs without a DAOS cluster or a Kubernetes
-# cluster. Do not add a job that silently skips when those are missing.
-stages: [check]
+# check: what runs without a DAOS cluster or a Kubernetes cluster.
+# build: base + server/agent/client/admin with podman on the exa-build runner (tag daos-build),
+#        one tag 2.8.0-<YYYYMMDD>-g<sha> for every role; pushed to the project registry on main only.
+# scan:  SBOM (syft) and vulnerability report (trivy); report only.
+# Do not add a job that silently skips when its prerequisites are missing.
+stages: [check, build, scan]
 
 default:
   image: python:3.12-slim
@@ -36,4 +39,62 @@ license-headers:
       echo "SPDX headers present in all $(echo "$sources" | wc -w) sources"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# Tier 0 (daos-operator doc/ci-design-2026-10-02.md). MR: build only. main: build + push.
+images:
+  stage: build
+  tags: [daos-build]
+  before_script:
+    - podman --version
+    # this GitLab reports the registry as host:80 while it actually serves TLS on 443: drop the port
+    - export REG="${CI_REGISTRY%%:*}"
+    - export IMG_NSP="$REG/$CI_PROJECT_PATH"
+    - . ./VERSION
+    - export TAG="${DAOS_VERSION}-$(date +%Y%m%d)-g${CI_COMMIT_SHORT_SHA}"
+    - echo "$CI_REGISTRY_PASSWORD" | podman login --username "$CI_REGISTRY_USER" --password-stdin "$REG"
+    - |
+      push() { for i in 1 2 3; do
+        echo "$CI_REGISTRY_PASSWORD" | podman login --username "$CI_REGISTRY_USER" --password-stdin "$REG" >/dev/null && podman push "$1" && return 0
+        echo "push $1 failed (attempt $i)"; sleep 10; done; return 1; }
+  script:
+    - make all DOCKER=podman IMAGE_NSP="$IMG_NSP" IMAGE_TAG="$TAG"
+    # SPDK setup.sh needs lsmod/modprobe to bind NVMe (daos-images !1, 2026-10-02)
+    - podman run --rm --entrypoint sh "$IMG_NSP/daos-server:$TAG" -c 'command -v modprobe && command -v lsmod'
+    - echo "DAOS_IMAGE_TAG=$TAG" > build.env
+    - |
+      if [ "$CI_COMMIT_BRANCH" = main ]; then
+        for r in base server agent client admin; do push "$IMG_NSP/daos-$r:$TAG"; done
+        echo "pushed $TAG"
+      else
+        echo "MR pipeline: built $TAG, not pushed"
+      fi
+  artifacts:
+    reports:
+      dotenv: build.env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: [images/**/*, Makefile, VERSION, .gitlab-ci.yml]
+    - if: $CI_COMMIT_BRANCH == "main"
+
+sbom-scan:
+  stage: scan
+  tags: [daos-build]
+  needs: [images]
+  allow_failure: true
+  script:
+    - export REG="${CI_REGISTRY%%:*}" && export IMG_NSP="$REG/$CI_PROJECT_PATH"
+    - mkdir -p sbom scan
+    - |
+      for r in base server agent client admin; do
+        img="$IMG_NSP/daos-$r:$DAOS_IMAGE_TAG"
+        podman save -o "/tmp/daos-$r.tar" "$img"
+        podman run --rm -v /tmp:/in:ro,z docker.io/anchore/syft:latest "docker-archive:/in/daos-$r.tar" -o spdx-json -q > "sbom/daos-$r-$DAOS_IMAGE_TAG.spdx.json"
+        podman run --rm -v /tmp:/in:ro,z docker.io/aquasec/trivy:latest image --quiet --input "/in/daos-$r.tar" --severity HIGH,CRITICAL --format table > "scan/daos-$r.txt" || true
+        echo "== daos-$r: $(grep -c -E 'HIGH|CRITICAL' scan/daos-$r.txt) HIGH/CRITICAL lines"; rm -f "/tmp/daos-$r.tar"
+      done
+  artifacts:
+    paths: [sbom/, scan/]
+    expire_in: 30 days
+  rules:
     - if: $CI_COMMIT_BRANCH == "main"
