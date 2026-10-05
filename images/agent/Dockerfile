@@ -7,6 +7,7 @@ ARG IMAGE_TAG=dev
 FROM ${IMAGE_NSP}/daos-base:${IMAGE_TAG}
 ARG DAOS_VERSION=2.8.0
 RUN dnf -y --allowerasing install daos-client-${DAOS_VERSION}* mercury-libfabric \
+ && rpm -q --qf '%{VERSION}\n' libfabric | grep -qx '1\.22\.0' \
  && dnf clean all && mkdir -p /var/run/daos_agent /etc/daos/certs /var/log/daos
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh
