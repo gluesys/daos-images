@@ -9,6 +9,14 @@ ARG DAOS_REPO_URL=https://packages.daos.io/v2.8/EL9/packages/x86_64/daos_package
 RUN dnf -y install epel-release && dnf -y install curl-minimal ca-certificates \
  && curl -fsSL -o /etc/yum.repos.d/daos.repo "${DAOS_REPO_URL}" \
  && rpm --import https://packages.daos.io/RPM-GPG-KEY-2023 || true
+# libfabric must come from the DAOS repository (1.22.0, what DAOS 2.8 is built and tested
+# against). Rocky AppStream carries 2.3.1, which dnf preferred as the newer version: since 2.2.0
+# its verbs EQ reads the async events of every device context without the domain lock
+# (ofiwg/libfabric#12181, reverted upstream in 2.6.0) and daos_engine crashed at start in
+# ibv_get_async_event (exastor/daos-operator design §13 #24, CI cluster 2026-10-05/06).
+RUN dnf -y install dnf-plugins-core \
+ && dnf config-manager --save --setopt='baseos.excludepkgs=libfabric*' --setopt='appstream.excludepkgs=libfabric*' \
+ && dnf clean all
 LABEL org.opencontainers.image.vendor="Gluesys Co., Ltd." \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.source="https://github.com/gluesys/daos-images"

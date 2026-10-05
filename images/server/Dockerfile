@@ -15,6 +15,7 @@ ARG DAOS_VERSION=2.8.0
 # fails with "NVMe SSDs not found" (found on the CI cluster exaci5-3a, 2026-10-02). The pod also
 # needs the host's /lib/modules mounted read-only; daos-operator does that.
 RUN dnf -y --allowerasing install daos-server-${DAOS_VERSION}* mercury-libfabric pciutils numactl libaio kmod \
+ && rpm -q --qf '%{VERSION}\n' libfabric | grep -qx '1\.22\.0' \
  && dnf clean all && mkdir -p /var/daos /var/log/daos /etc/daos/certs /mnt/daos0 /mnt/daos1 /var/run/daos_server
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh
