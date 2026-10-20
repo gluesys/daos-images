@@ -40,11 +40,26 @@ daos-operator #25 참조 배포용 서빙 이미지. `daos-client` 위에 python
 dfuse·PV·GDS 는 필요 없다. Ubuntu 기반 `lmcache/vllm-openai` 대신 EL9 를 쓰는 이유는 DAOS 클라이언트를
 다른 이미지와 같은 RPM 에서 가져오기 위해서다(wheel 은 배포판을 가리지 않는다).
 ```bash
-make vllm-lmcache IMAGE_NSP=$REGISTRY IMAGE_TAG=2.8.0-20260914 VLLM_VERSION=0.30.0 LMCACHE_VERSION=0.5.5
-make vllm-lmcache LMD_SRC=~/src/Flexa/lmcache-daos            # 로컬 체크아웃으로
+make vllm-lmcache IMAGE_NSP=$REGISTRY IMAGE_TAG=2.8.0-20261006-g41c3647d VLLM_VERSION=0.30.0 LMCACHE_VERSION=0.5.5
+make vllm-lmcache IMAGE_NSP=$REGISTRY IMAGE_TAG=2.8.0-20261006-g41c3647d \
+  LMD_SRC=~/src/Flexa/lmcache-daos LMD_SRC_REF=origin/main      # 로컬 체크아웃의 특정 ref 로
+docker tag $REGISTRY/vllm-lmcache-daos:2.8.0-20261006-g41c3647d $REGISTRY/vllm-lmcache-daos:0.30.0-0.5.5-$(date +%Y%m%d)
+make push-vllm-lmcache IMAGE_NSP=$REGISTRY IMAGE_TAG=0.30.0-0.5.5-$(date +%Y%m%d)
 ```
-`PYTHONHASHSEED=0`(lmcache-daos 요구)과 `DAOS_AGENT_DRPC_DIR` 이 기본 env 다. 첫 태그 `0.30.0-0.5.5-20260926`
-(vllm 0.30.0 + lmcache 0.5.5 + lmcache-daos e40c1fa, torch cu13, sm_86 포함).
+`IMAGE_TAG` 는 베이스(`daos-client`) 태그이자 결과 이미지의 첫 태그다. 배포용 태그
+`0.30.0-0.5.5-YYYYMMDD` 는 위처럼 다시 붙인다. **베이스는 libfabric 을 DAOS 저장소 1.22.0 으로 고정한
+client(41c3647 이후, `2.8.0-20261006-g41c3647d`)를 쓴다.** 그 전 베이스(`2.8.0-20260914`)는 Rocky AppStream
+의 libfabric 2.3.1 이 들어 있어, 다른 스레드가 I/O 중일 때 이벤트 큐를 만들면 verbs 공급자에서 segfault 가
+난다(lmcache-daos rank 가드·nixl-daos 처럼 이벤트 큐를 여럿 쓰는 경로가 해당).
+
+`PYTHONHASHSEED=0`(lmcache-daos 요구)과 `DAOS_AGENT_DRPC_DIR` 이 기본 env 다.
+
+| 태그 | 베이스 / libfabric | lmcache-daos | 비고 |
+|---|---|---|---|
+| `0.30.0-0.5.5-20260926` | 2.8.0-20260914 / 2.3.1 | e40c1fa | 첫 태그(torch cu13, sm_86 포함) |
+| `0.30.0-0.5.5-20260927` | 2.8.0-20260914 / 2.3.1 | e40c1fa | `which` 추가(flashinfer CUDA 경로 탐색) |
+| `0.30.0-0.5.5-20261020` | 2.8.0-20260914 / **2.3.1** | 1111741 | plugin 경로 대상 지정·MP `guard_oclass`. libfabric 때문에 쓰지 않는다 |
+| `0.30.0-0.5.5-20261021` | 2.8.0-20261006-g41c3647d / **1.22.0-5** | 1111741 | 현재. daos-operator 차트 예시가 가리키는 태그 |
 공식 배포는 RPM 만 존재하므로(packages.daos.io) 이미지는 v2.8 EL9 RPM 을 설치해 만든다.
 GPU-direct 초안(`theodore/b_cufile`)은 이미지에 넣지 않는다.
 
