@@ -26,6 +26,15 @@ RUN python3.12 -m pip install --no-cache-dir "vllm==${VLLM_VERSION}" "lmcache==$
 # flashinfer 의 JIT 경로가 `which nvcc` 로 CUDA 를 찾는다. which 가 없으면
 # FileNotFoundError 로 엔진 기동이 통째로 실패한다(cxl2 실측).
 RUN dnf -y install which && dnf clean all
+# LMCache 수정 패치(patches/lmcache-<버전>-*.patch). 0.5.5 는 vLLM 0.30 의 fused K/V
+# 배치에서 청크 토큰 절반만 저장·복원해 hit 응답이 틀린다(fused-kv.patch).
+# 다른 LMCACHE_VERSION 은 해당 버전 패치가 없으면 그대로 둔다.
+COPY patches /opt/lmcache-patches
+RUN dnf -y install patch && dnf clean all \
+ && lc=$(python3.12 -c 'import lmcache, os; print(os.path.dirname(os.path.dirname(lmcache.__file__)))') \
+ && for p in /opt/lmcache-patches/lmcache-${LMCACHE_VERSION}-*.patch; do \
+      [ -e "$p" ] || continue; echo "applying $p"; patch -d "$lc" -p1 --forward < "$p" || exit 1; \
+    done
 COPY src /opt/lmcache-daos
 RUN python3.12 -m pip install --no-cache-dir /opt/lmcache-daos \
  && python3.12 -c "import vllm, lmcache, lmcache_daos; print('vllm', vllm.__version__, 'lmcache', lmcache.__version__, 'lmcache_daos', getattr(lmcache_daos, '__version__', '?'))" \
