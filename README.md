@@ -60,7 +60,16 @@ client(41c3647 이후, `2.8.0-20261006-g41c3647d`)를 쓴다.** 그 전 베이�
 | `0.30.0-0.5.5-20260927` | 2.8.0-20260914 / 2.3.1 | e40c1fa | `which` 추가(flashinfer CUDA 경로 탐색) |
 | `0.30.0-0.5.5-20261020` | 2.8.0-20260914 / **2.3.1** | 1111741 | plugin 경로 대상 지정·MP `guard_oclass`. libfabric 때문에 쓰지 않는다 |
 | `0.30.0-0.5.5-20261021` | 2.8.0-20261006-g41c3647d / **1.22.0-5** | 1111741 | libfabric 고정 |
-| `0.30.0-0.5.5-20261021.2` | 2.8.0-20261006-g41c3647d / **1.22.0-5** | d76c6d5 | 현재. rank 가드 장애 중 재배치(`DAOS_RANK_GUARD_RELOCATE`) 포함. daos-operator 차트 예시가 가리키는 태그. 같은 날 두 번째 빌드라 `.2` |
+| `0.30.0-0.5.5-20261021.2` | 2.8.0-20261006-g41c3647d / **1.22.0-5** | d76c6d5 | rank 가드 장애 중 재배치(`DAOS_RANK_GUARD_RELOCATE`) 포함. 같은 날 두 번째 빌드라 `.2`. **LMCache KV 절반 복사 버그 있음(아래)** |
+| `0.30.0-0.5.5-20261025` | 2.8.0-20261006-g41c3647d / **1.22.0-5** | d76c6d5 | 현재. LMCache fused K/V 패치(`patches/lmcache-0.5.5-fused-kv.patch`) |
+
+**LMCache 0.5.5 패치.** vLLM 0.30 은 레이어마다 K·V 를 한 축에 붙인 `[블록, 블록 크기, head, 2×head_dim]`
+배치를 쓴다. LMCache 0.5.5 의 `VLLMPagedMemGPUConnectorV2` 는 이 배치를 인식하지만 메모리 객체를
+`[2, 레이어, 토큰, head×head_dim]` 로 만든다. 복사 커널은 첫 면에 토큰당 두 배 값을 채우다 토큰 절반에서
+멈춘다. 그래서 256 토큰 청크마다 앞 128 토큰만 저장·복원되고, 나머지 토큰에는 GPU 블록에 남아 있던 다른
+요청의 KV 가 쓰인다. 패치는 fused 배치일 때 커널에 넘기는 객체를 `[1, 레이어, 토큰, 2×head×head_dim]` 로 본다.
+레인 A needle 시험(문서 40개, 같은 질문 두 번)에서 cache hit 정답률이 55 % → 97.5 %(LMCache 없음과 같음)가
+되고, hit TTFT 는 그대로다. Dockerfile 은 `patches/lmcache-<LMCACHE_VERSION>-*.patch` 만 적용한다.
 공식 배포는 RPM 만 존재하므로(packages.daos.io) 이미지는 v2.8 EL9 RPM 을 설치해 만든다.
 GPU-direct 초안(`theodore/b_cufile`)은 이미지에 넣지 않는다.
 
